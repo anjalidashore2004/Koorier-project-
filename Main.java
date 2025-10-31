@@ -1,91 +1,66 @@
 package com.warehouse;
 
-import java.nio.file.Paths;
-import java.util.concurrent.*;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        Warehouse wh = new Warehouse();
-        wh.registerObserver(new ConsoleAlertService());
 
-        // Try to load existing inventory (if any)
-        try {
-            wh.loadFromFile(Paths.get("data", "inventory.txt"));
-            System.out.println("Loaded inventory from data/inventory.txt (if present).");
-        } catch (Exception e) {
-            System.err.println("Could not load inventory: " + e.getMessage());
-        }
+        Warehouse warehouse = new Warehouse();
+        ConsoleAlertService alertService = new ConsoleAlertService();
+        warehouse.addObserver(alertService);
 
-        // If inventory empty, create sample products
-        if (wh.listAllProducts().isEmpty()) {
-            wh.addProduct(new Product(1, "Laptop", 0, 5));
-            wh.addProduct(new Product(2, "Smartphone", 20, 5));
-            wh.addProduct(new Product(3, "Headphones", 15, 3));
-        }
+        Scanner sc = new Scanner(System.in);
 
-        System.out.println("Initial inventory:");
-        for (Product p : wh.listAllProducts()) {
-            System.out.println(p);
-        }
+        while (true) {
+            System.out.println("\n===== WAREHOUSE INVENTORY SYSTEM =====");
+            System.out.println("1. Add Product");
+            System.out.println("2. Receive Shipment");
+            System.out.println("3. Fulfill Order");
+            System.out.println("4. Show Inventory");
+            System.out.println("5. Exit");
+            System.out.print("Enter your choice: ");
+            int choice = sc.nextInt();
 
-        // Simulate shipments and orders concurrently (bonus: multithreading)
-        ExecutorService ex = Executors.newFixedThreadPool(4);
-        Runnable shipmentTask = () -> {
-            try {
-                wh.receiveShipment(1, 10); // Laptop +10
-                System.out.println("[Shipment] Received 10 Laptops");
-            } catch (Exception e) {
-                System.err.println("Shipment error: " + e.getMessage());
+            switch (choice) {
+                case 1:
+                    System.out.print("Enter Product ID: ");
+                    int id = sc.nextInt();
+                    sc.nextLine();
+                    System.out.print("Enter Product Name: ");
+                    String name = sc.nextLine();
+                    System.out.print("Enter Quantity: ");
+                    int qty = sc.nextInt();
+                    warehouse.addProduct(new Product(id, name, qty));
+                    break;
+
+                case 2:
+                    System.out.print("Enter Product ID: ");
+                    int rId = sc.nextInt();
+                    System.out.print("Enter Quantity to Receive: ");
+                    int rQty = sc.nextInt();
+                    warehouse.receiveShipment(rId, rQty);
+                    break;
+
+                case 3:
+                    System.out.print("Enter Product ID: ");
+                    int fId = sc.nextInt();
+                    System.out.print("Enter Quantity to Fulfill: ");
+                    int fQty = sc.nextInt();
+                    warehouse.fulfillOrder(fId, fQty);
+                    break;
+
+                case 4:
+                    warehouse.showInventory();
+                    break;
+
+                case 5:
+                    System.out.println("🚪 Exiting... Goodbye!");
+                    sc.close();
+                    return;
+
+                default:
+                    System.out.println("❌ Invalid choice!");
             }
-        };
-
-        Runnable orderTask = () -> {
-            try {
-                wh.fulfillOrder(1, 6); // Laptop -6 (may trigger alert)
-                System.out.println("[Order] Fulfilled 6 Laptops");
-            } catch (Exception e) {
-                System.err.println("Order error: " + e.getMessage());
-            }
-        };
-
-        // Submit tasks
-        ex.submit(shipmentTask);
-        ex.submit(orderTask);
-
-        // Additional tasks to demonstrate concurrent updates
-        ex.submit(() -> {
-            try { wh.fulfillOrder(2, 18); System.out.println("[Order] Fulfilled 18 Smartphones"); }
-            catch (Exception e) { System.err.println("Order error: " + e.getMessage()); }
-        });
-
-        ex.submit(() -> {
-            try { wh.receiveShipment(3, 5); System.out.println("[Shipment] Received 5 Headphones"); }
-            catch (Exception e) { System.err.println("Shipment error: " + e.getMessage()); }
-        });
-
-        // Wait for tasks to finish
-        ex.shutdown();
-        try {
-            if (!ex.awaitTermination(5, TimeUnit.SECONDS)) {
-                ex.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            ex.shutdownNow();
         }
-
-        System.out.println("\nFinal inventory:");
-        for (Product p : wh.listAllProducts()) {
-            System.out.println(p);
-        }
-
-        // Save inventory
-        try {
-            wh.saveToFile(Paths.get("data", "inventory.txt"));
-            System.out.println("\nSaved inventory to data/inventory.txt");
-        } catch (Exception e) {
-            System.err.println("Could not save inventory: " + e.getMessage());
-        }
-
-        System.out.println("\nDone.");
     }
 }
